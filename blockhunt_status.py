@@ -119,12 +119,15 @@ def main():
     args = parser.parse_args()
     if args.subcommand =='init':
         inithunts()
-    if args.subcommand == 'add':
+    elif args.subcommand == 'add':
         inithunts()
         addhunt(loadjson(), args.location, args.success)    
-    if args.subcommand == 'stats':
+    elif args.subcommand == 'stats':
         print(getstats(args.option))  
-    if args.subcommand == 'backup':
+    elif args.subcommand == 'backup':
         backuphunts(args.method)
+    else:
+        parser.print_help()
+
 if __name__ == "__main__":
     main()
