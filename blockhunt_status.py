@@ -12,7 +12,7 @@ import shutil
 def inithunts():
     if (os.path.isfile('blockhunts.json') is not True):
         # Create the blockhunts file
-        data = {"stats": { "total": 0, "today": 0, "blocksize_min": 20, "streak_days": 0, "home_hunts_total": 0,"mobile_hunts_total": 0, "aborted_hunts_total": 0, "aborted_hunts_home": 0, "aborted_hunts_mobile": 0, "last_hunt":"none", "longest_streak": 0},"hunts": [ ]}
+        data = {"stats": { "total": 0, "today": 0, "blocksize_min": 1, "streak_days": 0, "home_hunts_total": 0,"mobile_hunts_total": 0, "aborted_hunts_total": 0, "aborted_hunts_home": 0, "aborted_hunts_mobile": 0, "last_hunt":"none", "longest_streak": 0, "active_starttime": "none"},"hunts": [ ]}
         with open('blockhunts.json', "w+") as outfile:
             json.dump(data,outfile, indent=4)
 
@@ -78,11 +78,11 @@ def deletelast(json_data):
     writejson(json_data)
 
 def gettimeformat(dt):
-    return str(dt.strftime("%d-%m-%Y %H:%M"))
+    return str(dt.strftime("%d-%m-%Y %H:%M:%S"))
 
 def addhunt(json_data, location, success):
     now = datetime.datetime.now()
-    strtime = str(now.strftime("%d-%m-%Y %H:%M"))
+    strtime = str(now.strftime("%d-%m-%Y %H:%M:%S"))
     json_data["hunts"].append({"date": strtime,"location": location, "success": str(success), "streak": 1})  
     if success == "succeeded": 
         delta = deltadays(json_data["stats"]["last_hunt"],strtime )
@@ -106,14 +106,25 @@ def addhunt(json_data, location, success):
 def deltadays(day_str1, day_str2):
     if(day_str1 == "none"):
         return 1
-    date_format="%d-%m-%Y %H:%M"
+    date_format="%d-%m-%Y %H:%M:%S"
     d1 = datetime.datetime.strptime(day_str1, date_format)
     d2 = datetime.datetime.strptime(day_str2, date_format)
     delta = (d2.date() - d1.date())
     return delta.days
 
+def deltaseconds(time1, time2):
+    if(time1 == "none"):
+        return 1
+    date_format="%d-%m-%Y %H:%M:%S"
+    t1 = datetime.datetime.strptime(time1, date_format)
+    t2 = datetime.datetime.strptime(time2, date_format)
+    delta = t2- t1
+    return delta
+
+import os
 def getstats(option):
     data = loadjson()
+    global currentlocation
     if(option == "all"):
         return data["stats"]
     if(option == "total"):
@@ -122,29 +133,52 @@ def getstats(option):
         return data["stats"]["home_hunts_total"]
     if(option == "total_mobile"):
         return data["stats"]["mobile_hunts_total"]
+    if ((option == "polybar") and (data["stats"]["active_starttime"] != "none")):
+        t1 = data["stats"]["active_starttime"] 
+        t2 = datetime.datetime.now()
+        delta = deltaseconds(t1,gettimeformat(t2))
+        countdown = datetime.timedelta(minutes=int(data["stats"]["blocksize_min"])) -delta 
+
+        if countdown <= datetime.timedelta(0):
+            stophunt( currentlocation, "succeeded")
+            return countdown
+        else:
+            return countdown
+    return ""
+def stophunt( location, success):
+    if(success):
+        addhunt(loadjson(),location, "succeeded")
+    else:
+        addhunt(loadjson(),location, "aborted") 
+    json_data = loadjson()
+    json_data["stats"]["active_starttime"] = "none"
+    writejson(json_data)
 
 currentlocation = "none"
 def signal_handler(signal, frame):
     global currentlocation
-    addhunt(loadjson(),currentlocation,"aborted")
+    stophunt(currentlocation, "aborted")
     print("hunt aborted")
     sys.exit(0)
 
 def hunt(json_data, location):
-    global currentlocation
-    currentlocation = location
-    minutes = json_data["stats"]["blocksize_min"]
-    seconds = minutes * 60
-    while seconds:
-        mins, secs = divmod(seconds,60)
-        timeformat = '{:02d}:{:02d}'.format(mins,secs)
-        print(timeformat, end='\r')
-        time.sleep(1)
-        seconds -= 1
-
     
-    addhunt(json_data,location, "succeeded")  
-
+    #global currentlocation
+    #currentlocation = location
+    #minutes = json_data["stats"]["blocksize_min"]
+    #seconds = minutes * 60
+    #while seconds:
+    #    mins, secs = divmod(seconds,60)
+    #    timeformat = '{:02d}:{:02d}'.format(mins,secs)
+    #    print(str(timeformat))
+    #    time.sleep(1)
+    #    seconds -= 1
+    
+    #addhunt(json_data,location, "succeeded")  
+    
+    json_data["stats"]["active_starttime"] = gettimeformat(datetime.datetime.now())
+    writejson(json_data)
+    
 
 
 def backuphunts(method):
@@ -158,6 +192,7 @@ def backuphunts(method):
         print("no blockhunts.json found")
 
 def main():
+    
     signal.signal(signal.SIGINT, signal_handler)
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='subcommand')
@@ -178,7 +213,7 @@ def main():
     # add a required argument
     parser_stats.add_argument(
         'option',
-        choices=['all', 'total', 'total_home', 'total_mobile'],
+        choices=['all','polybar', 'total', 'total_home', 'total_mobile'],
         help='Get Stats about blockhunts')
 
     parser_hunt = subparsers.add_parser('hunt')
@@ -205,18 +240,19 @@ def main():
     parser_init = subparsers.add_parser('init')
 
     args = parser.parse_args()
-    inithunts()
     if args.subcommand =='init':
         inithunts()
     elif args.subcommand == 'add':
         addhunt(loadjson(), args.location, args.success)    
     elif args.subcommand == 'stats':
+        inithunts()
         print(getstats(args.option))  
     elif args.subcommand == 'backup':
         backuphunts(args.method)
     elif args.subcommand == 'delete':
         deletelast(loadjson())
     elif args.subcommand == 'hunt':
+        inithunts() 
         hunt(loadjson(), args.location)
     else:
         parser.print_help()
