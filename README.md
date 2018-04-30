@@ -46,7 +46,6 @@ tail = true
 format-prefix = "hunt: "
 format = <label>
 exec =  blockhunt_status stats polybar
-click-left = python -u ~/.scripts/blockhunt/blockhunt_status.py hunt home   
 ```
 ```ini
 [module/blockhuntscount]
