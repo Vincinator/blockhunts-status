@@ -12,7 +12,7 @@ import shutil
 def inithunts():
     if (os.path.isfile('blockhunts.json') is not True):
         # Create the blockhunts file
-        data = {"stats": { "total": 0, "today": 0, "blocksize_min": 1, "streak_days": 0, "home_hunts_total": 0,"mobile_hunts_total": 0, "aborted_hunts_total": 0, "aborted_hunts_home": 0, "aborted_hunts_mobile": 0, "last_hunt":"none", "longest_streak": 0, "active_starttime": "none"},"hunts": [ ]}
+        data = {"stats": { "total": 0, "today": 0, "blocksize_min": 20, "streak_days": 0, "home_hunts_total": 0,"mobile_hunts_total": 0, "aborted_hunts_total": 0, "aborted_hunts_home": 0, "aborted_hunts_mobile": 0, "last_hunt":"none", "longest_streak": 0, "active_starttime": "none"},"hunts": [ ]}
         with open('blockhunts.json', "w+") as outfile:
             json.dump(data,outfile, indent=4)
 
@@ -127,6 +127,8 @@ def getstats(option):
     global currentlocation
     if(option == "all"):
         return data["stats"]
+    if(option == "today"):
+        return data["stats"]["today"]
     if(option == "total"):
         return data["stats"]["total"]
     if(option == "total_home"):
@@ -175,7 +177,10 @@ def hunt(json_data, location):
     #    seconds -= 1
     
     #addhunt(json_data,location, "succeeded")  
-    
+   
+    if(json_data["stats"]["active_starttime"] != "none"):
+        return
+
     json_data["stats"]["active_starttime"] = gettimeformat(datetime.datetime.now())
     writejson(json_data)
     
@@ -192,7 +197,7 @@ def backuphunts(method):
         print("no blockhunts.json found")
 
 def main():
-    
+    os.chdir(os.path.expanduser("~/.blockhunts")) 
     signal.signal(signal.SIGINT, signal_handler)
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='subcommand')
@@ -213,7 +218,7 @@ def main():
     # add a required argument
     parser_stats.add_argument(
         'option',
-        choices=['all','polybar', 'total', 'total_home', 'total_mobile'],
+        choices=['all','polybar', 'today', 'total', 'total_home', 'total_mobile'],
         help='Get Stats about blockhunts')
 
     parser_hunt = subparsers.add_parser('hunt')
