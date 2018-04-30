@@ -14,7 +14,7 @@ optional arguments:
 ```
 
 ### add 
-```add <location> <success>``` adds a new blockhunt. where ```<location>``` is either ```home or ```mobile and ```success either ```succeeded or ```aborted (anything else will count as aborted as well). 
+```add <location> <success>``` adds a new blockhunt. where ```<location>``` is either ```home```  or ```mobile```  and ```success either``` ``` succeeded```  or ```aborted```  (anything else will count as aborted as well). 
 
 ### stat
 ```stat total``` will show the total number of blockhunts
