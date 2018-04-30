@@ -1,6 +1,8 @@
 #! /usr/bin/python
 
+import signal
 import json
+import time
 import os.path
 import sys
 import datetime
@@ -121,6 +123,29 @@ def getstats(option):
     if(option == "total_mobile"):
         return data["stats"]["mobile_hunts_total"]
 
+currentlocation = "none"
+def signal_handler(signal, frame):
+    global currentlocation
+    addhunt(loadjson(),currentlocation,"aborted")
+    print("hunt aborted")
+    sys.exit(0)
+
+def hunt(json_data, location):
+    global currentlocation
+    currentlocation = location
+    minutes = json_data["stats"]["blocksize_min"]
+    seconds = minutes * 60
+    while seconds:
+        mins, secs = divmod(seconds,60)
+        timeformat = '{:02d}:{:02d}'.format(mins,secs)
+        print(timeformat, end='\r')
+        time.sleep(1)
+        seconds -= 1
+
+    
+    addhunt(json_data,location, "succeeded")  
+
+
 
 def backuphunts(method):
 
@@ -133,6 +158,7 @@ def backuphunts(method):
         print("no blockhunts.json found")
 
 def main():
+    signal.signal(signal.SIGINT, signal_handler)
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='subcommand')
 
@@ -155,6 +181,13 @@ def main():
         choices=['all', 'total', 'total_home', 'total_mobile'],
         help='Get Stats about blockhunts')
 
+    parser_hunt = subparsers.add_parser('hunt')
+    
+    parser_hunt.add_argument(
+        'location',
+        choices=['home', 'mobile'],
+        help='Start a blockhunt in one location')
+    
     parser_delete= subparsers.add_parser('delete')
     
     parser_delete.add_argument(
@@ -172,10 +205,10 @@ def main():
     parser_init = subparsers.add_parser('init')
 
     args = parser.parse_args()
+    inithunts()
     if args.subcommand =='init':
         inithunts()
     elif args.subcommand == 'add':
-        inithunts()
         addhunt(loadjson(), args.location, args.success)    
     elif args.subcommand == 'stats':
         print(getstats(args.option))  
@@ -183,6 +216,8 @@ def main():
         backuphunts(args.method)
     elif args.subcommand == 'delete':
         deletelast(loadjson())
+    elif args.subcommand == 'hunt':
+        hunt(loadjson(), args.location)
     else:
         parser.print_help()
 
