@@ -52,7 +52,6 @@ def updatestats(json_data):
                 aborted_hunts_home += 1
         if hunt["streak"] > longest_streak:
             longest_streak = hunt["streak"]
-        print (deltadays(gettimeformat(todaydate), hunt["date"]))
         if deltadays(gettimeformat(todaydate), hunt["date"])== 0:
             today += 1
             
@@ -72,10 +71,8 @@ def updatestats(json_data):
 
 
 def deletelast(json_data):
-    print(json_data)
     json_data["hunts"] = json_data["hunts"][:-1]
     json_data = updatestats(json_data)
-    print(json_data)
     writejson(json_data)
 
 def gettimeformat(dt):
@@ -85,24 +82,12 @@ def addhunt(json_data, location, success):
     now = datetime.datetime.now()
     strtime = str(now.strftime("%d-%m-%Y %H:%M"))
     json_data["hunts"].append({"date": strtime,"location": location, "success": str(success), "streak": 1})  
-    if location == "mobile":
-        if success != "succeeded":
-            json_data["stats"]["aborted_hunts_mobile"] += 1
-        else: 
-            json_data["stats"]["mobile_hunts_total"] +=1
-    elif location == "home":
-        if success != "succeeded":
-            json_data["stats"]["aborted_hunts_home"] += 1
-        else:
-            json_data["stats"]["home_hunts_total"] += 1
     if success == "succeeded": 
-        json_data["stats"]["total"] += 1 
         delta = deltadays(json_data["stats"]["last_hunt"],strtime )
         if delta == 1:
             json_data["stats"]["streak_days"] += 1
-        else:
+        elif delta != 0:
             json_data["stats"]["streak_days"] = 0
-    
         if json_data["stats"]["longest_streak"] < json_data["stats"]["streak_days"]:
             json_data["stats"]["longest_streak"] = json_data["stats"]["streak_days"]
         json_data["stats"]["last_hunt"] = strtime
@@ -110,7 +95,7 @@ def addhunt(json_data, location, success):
         json_data["stats"]["aborted_hunts_total"] += 1
     # save the streak day count to the hunt (last in list since we appended) 
     json_data["hunts"][-1]["streak"] = json_data["stats"]["streak_days"] 
-    
+    json_data = updatestats(json_data) 
     writejson(json_data) 
     
 # Return 0 if day1 and day2 are the same
@@ -123,10 +108,6 @@ def deltadays(day_str1, day_str2):
     d1 = datetime.datetime.strptime(day_str1, date_format)
     d2 = datetime.datetime.strptime(day_str2, date_format)
     delta = (d2.date() - d1.date())
-    print("delta days -----")
-    print(d1.day)
-    print(d2.day)
-    print(delta.days)
     return delta.days
 
 def getstats(option):
