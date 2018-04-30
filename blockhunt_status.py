@@ -10,7 +10,7 @@ import shutil
 def inithunts():
     if (os.path.isfile('blockhunts.json') is not True):
         # Create the blockhunts file
-        data = {"stats": { "total": 0,"blocksize_min": 20, "streak_days": 0, "home_hunts_total": 0,"mobile_hunts_total": 0, "aborted_hunts_total": 0, "aborted_home_hunts": 0, "aborted_mobile_hunts": 0, "last_hunt":"none", "longest_streak": 0},"hunts": [ ]}
+        data = {"stats": { "total": 0,"blocksize_min": 20, "streak_days": 0, "home_hunts_total": 0,"mobile_hunts_total": 0, "aborted_hunts_total": 0, "aborted_hunts_home": 0, "aborted_hunts_mobile": 0, "last_hunt":"none", "longest_streak": 0},"hunts": [ ]}
         with open('blockhunts.json', "w+") as outfile:
             json.dump(data,outfile, indent=4)
 
@@ -23,19 +23,72 @@ def writejson(json_data):
     with open('blockhunts.json', '+w') as json_file:
         json.dump(json_data, json_file, indent=4)
 
+def updatestats(json_data):
+    total = 0
+    streak_days = 0
+    home_hunts_total = 0
+    mobile_hunts_total = 0
+    aborted_hunts_total = 0 
+    aborted_hunts_home = 0
+    aborted_hunts_mobile = 0
+    last_hunt = "none"
+    longest_streak = 0
+    
+    for hunt in json_data["hunts"]:
+        print(hunt)
+        if hunt["location"] == "mobile":
+            if hunt["success"] == "succeeded":
+                total += 1
+                mobile_hunts_total += 1
+            else:
+                aborted_hunts_total += 1
+                aborted_hunts_mobile += 1
+        elif hunt["location"] == "home":
+            if hunt["success"] == "succeeded":
+                total += 1
+                home_hunts_total += 1
+            else:
+                aborted_hunts_total += 1
+                aborted_hunts_home += 1
+        if hunt["streak"] > longest_streak:
+            longest_streak = hunt["streak"]
+        
+        if deltadays(last_hunt, hunt["date"]) >= 0:
+            if hunt["streak"] > streak_days:
+                streak_days = hunt["streak"]
+    json_data["stats"]["total"] = total
+    json_data["stats"]["mobile_hunts_total"] = mobile_hunts_total
+    json_data["stats"]["home_hunts_total"] = home_hunts_total
+    json_data["stats"]["aborted_hunts_total"] =  aborted_hunts_total
+    json_data["stats"]["aborted_hunts_mobile"] = aborted_hunts_mobile
+    json_data["stats"]["aborted_hunts_home"] =   aborted_hunts_home
+    json_data["stats"]["streak_days"] = streak_days 
+    
+    json_data["stats"]["longest_streak"] = longest_streak
+    return json_data
+
+
+def deletelast(json_data):
+    print(json_data)
+    json_data["hunts"] = json_data["hunts"][:-1]
+    json_data = updatestats(json_data)
+    print(json_data)
+    writejson(json_data)
+
+
 def addhunt(json_data, location, success):
     now = datetime.datetime.now()
     strtime = str(now.strftime("%d-%m-%Y %H:%M"))
-    json_data["hunts"].append({"date": strtime,"location": location, "success": str(success)})  
+    json_data["hunts"].append({"date": strtime,"location": location, "success": str(success), "streak": 1})  
     if location == "mobile":
         if success != "succeeded":
-            json_data["stats"]["aborted_mobile_hunts"] += 1
+            json_data["stats"]["aborted_hunts_mobile"] += 1
         else: 
             json_data["stats"]["mobile_hunts_total"] +=1
     elif location == "home":
         if success != "succeeded":
-            json_data["aborted_home_hunts"] += 1
-        else: 
+            json_data["stats"]["aborted_hunts_home"] += 1
+        else:
             json_data["stats"]["home_hunts_total"] += 1
     if success == "succeeded": 
         json_data["stats"]["total"] += 1 
@@ -48,11 +101,16 @@ def addhunt(json_data, location, success):
         if json_data["stats"]["longest_streak"] < json_data["stats"]["streak_days"]:
             json_data["stats"]["longest_streak"] = json_data["stats"]["streak_days"]
         json_data["stats"]["last_hunt"] = strtime
-
-
+    else:
+        json_data["stats"]["aborted_hunts_total"] += 1
+    # save the streak day count to the hunt (last in list since we appended) 
+    json_data["hunts"][-1]["streak"] = json_data["stats"]["streak_days"] 
+    
     writejson(json_data) 
     
-
+# Return 0 if day1 and day2 are the same
+# Return positive number (delta days between day1 and day2) if day2 is more recent than day1
+# Return negative if day1 is more recent.
 def deltadays(day_str1, day_str2):
     if(day_str1 == "none"):
         return 1
@@ -107,6 +165,13 @@ def main():
         choices=['all', 'total', 'total_home', 'total_mobile'],
         help='Get Stats about blockhunts')
 
+    parser_delete= subparsers.add_parser('delete')
+    
+    parser_delete.add_argument(
+        'option',
+        choices=['last'],
+        help='delete blockhunts')
+
     parser_backup = subparsers.add_parser('backup')
     # add a required argument
     parser_backup.add_argument(
@@ -126,6 +191,8 @@ def main():
         print(getstats(args.option))  
     elif args.subcommand == 'backup':
         backuphunts(args.method)
+    elif args.subcommand == 'delete':
+        deletelast(loadjson())
     else:
         parser.print_help()
 
