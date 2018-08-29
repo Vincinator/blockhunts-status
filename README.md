@@ -1,3 +1,5 @@
+Not Maintained
+
 # Blockhunts-status
 Keeps track of your blockhunts (aka pomodore). 
 
